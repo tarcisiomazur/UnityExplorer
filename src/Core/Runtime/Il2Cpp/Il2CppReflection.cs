@@ -313,7 +313,7 @@ namespace UnityExplorer.Core.Runtime.Il2Cpp
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.GetType() + ", " + e.Message);
+                ExplorerBepInPlugin.Instance.LogSource.LogError(e.GetType() + ", " + e.Message);
             }
 
             return false;

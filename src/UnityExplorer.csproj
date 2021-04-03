@@ -95,6 +95,9 @@
   </PropertyGroup>
   <!-- Global refs, Mono and Il2Cpp -->
   <ItemGroup>
+    <Reference Include="Assembly-CSharp, Version=3.7.1.6, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\lib\Assembly-CSharp.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />

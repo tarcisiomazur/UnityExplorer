@@ -20,6 +20,16 @@ using UnhollowerRuntimeLib;
 
 namespace UnityExplorer
 {
+    [HarmonyPatch]
+    public static class Attach
+    {
+        [HarmonyPatch(typeof(TextRenderer), nameof(TextRenderer.Update))]
+        public static void Prefix(TextRenderer __instance)
+        {
+            if(__instance.gameObject.name == "ExplorerBehaviour") ExplorerCore.Update();
+        }
+    }
+    
     [BepInPlugin(ExplorerCore.GUID, "UnityExplorer", ExplorerCore.VERSION)]
 
     public class ExplorerBepInPlugin :
@@ -76,31 +86,14 @@ namespace UnityExplorer
         {
             UniversalInit();
 
-            ClassInjector.RegisterTypeInIl2Cpp<ExplorerBehaviour>();
-
             var obj = new GameObject("ExplorerBehaviour");
-            obj.AddComponent<ExplorerBehaviour>();
+            obj.AddComponent<TextRenderer>();
             obj.hideFlags = HideFlags.HideAndDontSave;
             GameObject.DontDestroyOnLoad(obj);
 
             ExplorerCore.Init(this);
         }
-
-        // BepInEx Il2Cpp mod class doesn't have monobehaviour methods yet, so wrap them in a dummy.
-        public class ExplorerBehaviour : MonoBehaviour
-        {
-            public ExplorerBehaviour(IntPtr ptr) : base(ptr) { }
-
-            internal void Awake()
-            {
-                Instance.LogSource.LogMessage("ExplorerBehaviour.Awake");
-            }
-
-            internal void Update()
-            {
-                ExplorerCore.Update();
-            }
-        }
+        
 #endif
 
         public void SetupPatches()
