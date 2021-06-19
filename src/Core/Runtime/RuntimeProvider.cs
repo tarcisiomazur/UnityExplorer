@@ -4,19 +4,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityExplorer.Core.Runtime;
 
-namespace UnityExplorer.Core.Runtime
+// Intentionally project-wide namespace so that its always easily accessible.
+namespace UnityExplorer
 {
-    // Work in progress, this will be used to replace all the "if CPP / if MONO" 
-    // pre-processor directives all over the codebase.
-
     public abstract class RuntimeProvider
     {
         public static RuntimeProvider Instance;
 
-        public ReflectionProvider Reflection;
         public TextureUtilProvider TextureUtil;
 
         public RuntimeProvider()
@@ -28,30 +27,50 @@ namespace UnityExplorer.Core.Runtime
 
         public static void Init() =>
 #if CPP
-            Instance = new Il2Cpp.Il2CppProvider();
+            Instance = new Core.Runtime.Il2Cpp.Il2CppProvider();
 #else
-            Instance = new Mono.MonoProvider();
+            Instance = new Core.Runtime.Mono.MonoProvider();
 #endif
-
 
         public abstract void Initialize();
 
         public abstract void SetupEvents();
 
-        public abstract void StartConsoleCoroutine(IEnumerator routine);
+        public abstract void StartCoroutine(IEnumerator routine);
+
+        public abstract void Update();
+
+        //public virtual bool IsReferenceEqual(object a, object b) => ReferenceEquals(a, b);
 
         // Unity API handlers
+
+        public abstract T AddComponent<T>(GameObject obj, Type type) where T : Component;
+
+        public abstract ScriptableObject CreateScriptable(Type type);
 
         public abstract string LayerToName(int layer);
 
         public abstract UnityEngine.Object[] FindObjectsOfTypeAll(Type type);
 
-        public abstract int GetSceneHandle(Scene scene);
+        public abstract void GraphicRaycast(GraphicRaycaster raycaster, PointerEventData data, List<RaycastResult> list);
+
+        //public abstract int GetSceneHandle(Scene scene);
 
         public abstract GameObject[] GetRootGameObjects(Scene scene);
 
         public abstract int GetRootCount(Scene scene);
 
-        public abstract ColorBlock SetColorBlock(ColorBlock colors, Color? normal = null, Color? highlighted = null, Color? pressed = null);
+        public abstract void SetColorBlock(Selectable selectable, ColorBlock colors);
+
+        public abstract void SetColorBlock(Selectable selectable, Color? normal = null, Color? highlighted = null, Color? pressed = null,
+            Color? disabled = null);
+
+        internal virtual void ProcessOnPostRender()
+        {
+        }
+
+        internal virtual void ProcessFixedUpdate()
+        {
+        }
     }
 }

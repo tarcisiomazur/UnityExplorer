@@ -1,7 +1,6 @@
 ﻿#if ML
 using System;
 using System.IO;
-using Harmony;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,9 +9,16 @@ using UnityExplorer.Core;
 using UnityExplorer.Core.Config;
 using UnityExplorer.Core.Input;
 using UnityExplorer.Loader.ML;
+#if ML_LEGACY
+using Harmony;
+#else
+using HarmonyLib;
+[assembly: MelonPlatformDomain(MelonPlatformDomainAttribute.CompatibleDomains.UNIVERSAL)]
+#endif
 
 [assembly: MelonInfo(typeof(ExplorerMelonMod), ExplorerCore.NAME, ExplorerCore.VERSION, ExplorerCore.AUTHOR)]
 [assembly: MelonGame(null, null)]
+[assembly: MelonColor(ConsoleColor.DarkCyan)]
 
 namespace UnityExplorer
 {
@@ -21,7 +27,6 @@ namespace UnityExplorer
         public static ExplorerMelonMod Instance;
 
         public string ExplorerFolder => Path.Combine("Mods", ExplorerCore.NAME);
-        public string ConfigFolder => ExplorerFolder;
 
         public ConfigHandler ConfigHandler => _configHandler;
         public MelonLoaderConfigHandler _configHandler;
@@ -29,8 +34,6 @@ namespace UnityExplorer
         public Action<object> OnLogMessage => MelonLogger.Msg;
         public Action<object> OnLogWarning => MelonLogger.Warning;
         public Action<object> OnLogError   => MelonLogger.Error;
-
-        public Harmony.HarmonyInstance HarmonyInstance => Instance.Harmony;
 
         public override void OnApplicationStart()
         {
@@ -40,12 +43,7 @@ namespace UnityExplorer
             ExplorerCore.Init(this);
         }
 
-        public override void OnUpdate()
-        {
-            ExplorerCore.Update();
-        }
-
-        public void SetupPatches()
+        public void SetupCursorPatches()
         {
             try
             {
@@ -72,7 +70,11 @@ namespace UnityExplorer
             try
             {
                 var prop = type.GetProperty(property);
+#if ML_LEGACY
                 this.Harmony.Patch(prop.GetSetMethod(), prefix: prefix);
+#else
+                HarmonyInstance.Patch(prop.GetSetMethod(), prefix: prefix);
+#endif
             }
             catch (Exception e)
             {

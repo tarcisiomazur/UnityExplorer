@@ -10,13 +10,12 @@ namespace UnityExplorer
     {
         string ExplorerFolder { get; }
 
-        string ConfigFolder { get; }
         ConfigHandler ConfigHandler { get; }
 
         Action<object> OnLogMessage { get; }
         Action<object> OnLogWarning { get; }
         Action<object> OnLogError { get; }
 
-        void SetupPatches();
+        void SetupCursorPatches();
     }
 }

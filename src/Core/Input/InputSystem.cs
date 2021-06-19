@@ -1,10 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
-using UnityExplorer.Core.Unity;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityExplorer.UI;
-using System.Collections.Generic;
 
 namespace UnityExplorer.Core.Input
 {
@@ -12,8 +12,6 @@ namespace UnityExplorer.Core.Input
     {
         public InputSystem()
         {
-            ExplorerCore.Log("Initializing new InputSystem support...");
-
             m_kbCurrentProp = TKeyboard.GetProperty("current");
             m_kbIndexer = TKeyboard.GetProperty("Item", new Type[] { TKey });
 
@@ -24,14 +22,17 @@ namespace UnityExplorer.Core.Input
             m_mouseCurrentProp = TMouse.GetProperty("current");
             m_leftButtonProp = TMouse.GetProperty("leftButton");
             m_rightButtonProp = TMouse.GetProperty("rightButton");
+            m_scrollDeltaProp = TMouse.GetProperty("scroll");
 
             m_positionProp = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.Pointer")
                             .GetProperty("position");
 
-            m_readVector2InputMethod = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputControl`1")
+            ReadV2ControlMethod = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputControl`1")
                                       .MakeGenericType(typeof(Vector2))
                                       .GetMethod("ReadValue");
         }
+
+        #region reflection cache
 
         public static Type TKeyboard => m_tKeyboard ?? (m_tKeyboard = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.Keyboard"));
         private static Type m_tKeyboard;
@@ -62,10 +63,17 @@ namespace UnityExplorer.Core.Input
         private static object m_rmb;
         private static PropertyInfo m_rightButtonProp;
 
+        private static MethodInfo ReadV2ControlMethod;
+
         private static object MousePositionInfo => m_pos ?? (m_pos = m_positionProp.GetValue(CurrentMouse, null));
         private static object m_pos;
         private static PropertyInfo m_positionProp;
-        private static MethodInfo m_readVector2InputMethod;
+
+        private static object MouseScrollInfo => m_scrollInfo ?? (m_scrollInfo = m_scrollDeltaProp.GetValue(CurrentMouse, null));
+        private static object m_scrollInfo;
+        private static PropertyInfo m_scrollDeltaProp;
+
+        #endregion
 
         public Vector2 MousePosition
         {
@@ -73,26 +81,47 @@ namespace UnityExplorer.Core.Input
             {
                 try
                 {
-                    return (Vector2)m_readVector2InputMethod.Invoke(MousePositionInfo, new object[0]);
+                    return (Vector2)ReadV2ControlMethod.Invoke(MousePositionInfo, ArgumentUtility.EmptyArgs);
                 }
-                catch
+                catch { return Vector2.zero; }
+            }
+        }
+
+        public Vector2 MouseScrollDelta
+        {
+            get
+            {
+                try
                 {
-                    return Vector2.zero;
+                    return (Vector2)ReadV2ControlMethod.Invoke(MouseScrollInfo, ArgumentUtility.EmptyArgs);
                 }
+                catch { return Vector2.zero; }
             }
         }
 
         internal static Dictionary<KeyCode, object> ActualKeyDict = new Dictionary<KeyCode, object>();
+        internal static Dictionary<string, string> enumNameFixes = new Dictionary<string, string>
+        {
+            { "Control", "Ctrl" },
+            { "Return", "Enter" },
+            { "Alpha", "Digit" },
+            { "Keypad", "Numpad" },
+            { "Numlock", "NumLock" },
+            { "Print", "PrintScreen" },
+            { "BackQuote", "Backquote" }
+        };
 
         internal object GetActualKey(KeyCode key)
         {
             if (!ActualKeyDict.ContainsKey(key))
             {
                 var s = key.ToString();
-                if (s.Contains("Control"))
-                    s = s.Replace("Control", "Ctrl");
-                else if (s.Contains("Return"))
-                    s = "Enter";
+                try
+                {
+                    if (enumNameFixes.First(it => s.Contains(it.Key)) is KeyValuePair<string, string> entry)
+                        s = s.Replace(entry.Key, entry.Value);
+                }
+                catch { }
 
                 var parsed = Enum.Parse(TKey, s);
                 var actualKey = m_kbIndexer.GetValue(CurrentKeyboard, new object[] { parsed });
@@ -131,41 +160,74 @@ namespace UnityExplorer.Core.Input
 
         // UI Input
 
-        //public Type TInputSystemUIInputModule 
-        //    => m_tUIInputModule 
-        //    ?? (m_tUIInputModule = ReflectionHelpers.GetTypeByName("UnityEngine.InputSystem.UI.InputSystemUIInputModule"));
-        //internal Type m_tUIInputModule;
+        public Type TInputSystemUIInputModule
+            => m_tUIInputModule
+            ?? (m_tUIInputModule = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.UI.InputSystemUIInputModule"));
+        internal Type m_tUIInputModule;
 
-        public BaseInputModule UIModule => null; // m_newInputModule;
-        //internal BaseInputModule m_newInputModule;
-
-        public PointerEventData InputPointerEvent => null;
+        public BaseInputModule UIModule => m_newInputModule;
+        internal BaseInputModule m_newInputModule;
 
         public void AddUIInputModule()
         {
-//            if (TInputSystemUIInputModule != null)
-//            {
-//#if CPP
-//                // m_newInputModule = UIManager.CanvasRoot.AddComponent(Il2CppType.From(TInputSystemUIInputModule)).TryCast<BaseInputModule>();
-//#else
-//                m_newInputModule = (BaseInputModule)UIManager.CanvasRoot.AddComponent(TInputSystemUIInputModule);
-//#endif
-//            }
-//            else
-//            {
-//                ExplorerCore.LogWarning("New input system: Could not find type by name 'UnityEngine.InputSystem.UI.InputSystemUIInputModule'");
-//            }
+            if (TInputSystemUIInputModule == null)
+            {
+                ExplorerCore.LogWarning("Unable to find UI Input Module Type, Input will not work!");
+                return;
+            }
+
+            var assetType = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputActionAsset");
+            m_newInputModule = RuntimeProvider.Instance.AddComponent<BaseInputModule>(UIManager.CanvasRoot, TInputSystemUIInputModule);
+            var asset = RuntimeProvider.Instance.CreateScriptable(assetType)
+                .TryCast(assetType);
+
+            inputExtensions = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputActionSetupExtensions");
+
+            var addMap = inputExtensions.GetMethod("AddActionMap", new Type[] { assetType, typeof(string) });
+            var map = addMap.Invoke(null, new object[] { asset, "UI" })
+                .TryCast(ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputActionMap"));
+
+            CreateAction(map, "point", new[] { "<Mouse>/position" }, "point");
+            CreateAction(map, "click", new[] { "<Mouse>/leftButton" }, "leftClick");
+            CreateAction(map, "rightClick", new[] { "<Mouse>/rightButton" }, "rightClick");
+            CreateAction(map, "scrollWheel", new[] { "<Mouse>/scroll" }, "scrollWheel");
+
+            UI_Enable = map.GetType().GetMethod("Enable");
+            UI_Enable.Invoke(map, ArgumentUtility.EmptyArgs);
+            UI_ActionMap = map;
+        }
+
+        private Type inputExtensions;
+        private object UI_ActionMap;
+        private MethodInfo UI_Enable;
+
+        private void CreateAction(object map, string actionName, string[] bindings, string propertyName)
+        {
+            var inputActionType = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputAction");
+            var addAction = inputExtensions.GetMethod("AddAction");
+            var action = addAction.Invoke(null, new object[] { map, actionName, default, null, null, null, null, null })
+                .TryCast(inputActionType);
+
+            var addBinding = inputExtensions.GetMethod("AddBinding",
+                new Type[] { inputActionType, typeof(string), typeof(string), typeof(string), typeof(string) });
+
+            foreach (string binding in bindings)
+                addBinding.Invoke(null, new object[] { action.TryCast(inputActionType), binding, null, null, null });
+
+            var refType = ReflectionUtility.GetTypeByName("UnityEngine.InputSystem.InputActionReference");
+            var inputRef = refType.GetMethod("Create")
+                            .Invoke(null, new object[] { action })
+                            .TryCast(refType);
+
+            TInputSystemUIInputModule
+                .GetProperty(propertyName)
+                .SetValue(m_newInputModule.TryCast(TInputSystemUIInputModule), inputRef, null);
         }
 
         public void ActivateModule()
         {
-//#if CPP
-//            // m_newInputModule.ActivateModule();
-//#else
-//            m_newInputModule.ActivateModule();
-//#endif
-
-
+            m_newInputModule.ActivateModule();
+            UI_Enable.Invoke(UI_ActionMap, ArgumentUtility.EmptyArgs);
         }
     }
 }

@@ -8,6 +8,7 @@ namespace UnityExplorer.Core.Input
     public class NoInput : IHandleInput
     {
         public Vector2 MousePosition => Vector2.zero;
+        public Vector2 MouseScrollDelta => Vector2.zero;
 
         public bool GetKey(KeyCode key) => false;
         public bool GetKeyDown(KeyCode key) => false;
@@ -16,7 +17,6 @@ namespace UnityExplorer.Core.Input
         public bool GetMouseButtonDown(int btn) => false;
 
         public BaseInputModule UIModule => null;
-        public PointerEventData InputPointerEvent => null;
         public void ActivateModule() { }
         public void AddUIInputModule() { }
     }

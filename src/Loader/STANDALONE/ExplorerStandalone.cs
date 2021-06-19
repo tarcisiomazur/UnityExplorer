@@ -76,8 +76,6 @@ namespace UnityExplorer
         }
         private static string s_explorerFolder;
         
-        public string ConfigFolder => ExplorerFolder;
-
         Action<object> IExplorerLoader.OnLogMessage => (object log) => { OnLog?.Invoke(log?.ToString() ?? "", LogType.Log); };
         Action<object> IExplorerLoader.OnLogWarning => (object log) => { OnLog?.Invoke(log?.ToString() ?? "", LogType.Warning); };
         Action<object> IExplorerLoader.OnLogError   => (object log) => { OnLog?.Invoke(log?.ToString() ?? "", LogType.Error); };
@@ -87,30 +85,10 @@ namespace UnityExplorer
             Instance = this;
             _configHandler = new StandaloneConfigHandler();
 
-#if CPP
-            ClassInjector.RegisterTypeInIl2Cpp<ExplorerBehaviour>();
-#endif
-            var obj = new GameObject("ExplorerBehaviour");
-            obj.AddComponent<ExplorerBehaviour>();
-
-            GameObject.DontDestroyOnLoad(obj);
-            obj.hideFlags = HideFlags.HideAndDontSave;
-
             ExplorerCore.Init(this);
         }
 
-        public class ExplorerBehaviour : MonoBehaviour
-        {
-#if CPP
-            public ExplorerBehaviour(IntPtr ptr) : base(ptr) { }
-#endif
-            internal void Update()
-            {
-                ExplorerCore.Update();
-            }
-        }
-
-        public void SetupPatches()
+        public void SetupCursorPatches()
         {
             try
             {
