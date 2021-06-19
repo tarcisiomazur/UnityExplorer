@@ -463,7 +463,7 @@ namespace UnityExplorer
                         currentBlacklist.Add(sig);
                 }
 
-                Mono.CSharp.IL2CPP.Blacklist.SignatureBlacklist = currentBlacklist;
+                //Mono.CSharp.IL2CPP.Blacklist.SignatureBlacklist = currentBlacklist;
             }
             catch (Exception ex)
             {

@@ -506,8 +506,8 @@ namespace UnityExplorer
             }
             catch (Exception e)
             {
-                if (!suppressWarning)
-                    Console.WriteLine($"Failed loading module '{Path.GetFileName(fullPath)}'! {e.ReflectionExToString()}");
+                //if (!suppressWarning)
+                    //Console.WriteLine($"Failed loading module '{Path.GetFileName(fullPath)}'! {e.ReflectionExToString()}");
             }
 
             return false;

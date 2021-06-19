@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using UnityExplorer.Core.Config;
-using UnityExplorer.Loader.BIE;
 using UnityEngine;
-using UnityExplorer.Core;
 using UnityEngine.EventSystems;
+using UnityExplorer.Core;
+using UnityExplorer.Core.Config;
 using UnityExplorer.Core.Input;
+using UnityExplorer.Loader.BIE;
 #if CPP
 using BepInEx.IL2CPP;
 using UnhollowerRuntimeLib;
@@ -20,16 +20,6 @@ using UnhollowerRuntimeLib;
 
 namespace UnityExplorer
 {
-    [HarmonyPatch]
-    public static class Attach
-    {
-        [HarmonyPatch(typeof(TextRenderer), nameof(TextRenderer.Update))]
-        public static void Prefix(TextRenderer __instance)
-        {
-            if(__instance.gameObject.name == "ExplorerBehaviour") ExplorerCore.Update();
-        }
-    }
-    
     [BepInPlugin(ExplorerCore.GUID, "UnityExplorer", ExplorerCore.VERSION)]
 
     public class ExplorerBepInPlugin :
@@ -52,51 +42,37 @@ namespace UnityExplorer
         public ConfigHandler ConfigHandler => _configHandler;
         private BepInExConfigHandler _configHandler;
 
-        public Harmony HarmonyInstance => s_harmony;
-        private static readonly Harmony s_harmony = new Harmony(ExplorerCore.GUID);
+        public HarmonyLib.Harmony HarmonyInstance => s_harmony;
+        private static readonly HarmonyLib.Harmony s_harmony = new HarmonyLib.Harmony(ExplorerCore.GUID);
 
         public string ExplorerFolder => Path.Combine(Paths.PluginPath, ExplorerCore.NAME);
-        public string ConfigFolder => Path.Combine(Paths.ConfigPath, ExplorerCore.NAME);
 
         public Action<object> OnLogMessage => LogSource.LogMessage;
         public Action<object> OnLogWarning => LogSource.LogWarning;
-        public Action<object> OnLogError   => LogSource.LogError;
+        public Action<object> OnLogError => LogSource.LogError;
 
         // Init common to Mono and Il2Cpp
         internal void UniversalInit()
         {
             Instance = this;
             _configHandler = new BepInExConfigHandler();
+            ExplorerCore.Init(this);
         }
 
-#if MONO // Mono-specific
+#if MONO // Mono
         internal void Awake()
         {
             UniversalInit();
-            ExplorerCore.Init(this);
         }
 
-        internal void Update()
-        {
-            ExplorerCore.Update();
-        }
-
-#else   // Il2Cpp-specific
+#else   // Il2Cpp
         public override void Load()
         {
             UniversalInit();
-
-            var obj = new GameObject("ExplorerBehaviour");
-            obj.AddComponent<TextRenderer>();
-            obj.hideFlags = HideFlags.HideAndDontSave;
-            GameObject.DontDestroyOnLoad(obj);
-
-            ExplorerCore.Init(this);
         }
-        
 #endif
 
-        public void SetupPatches()
+        public void SetupCursorPatches()
         {
             try
             {

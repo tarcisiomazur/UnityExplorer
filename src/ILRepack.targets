@@ -5,7 +5,6 @@
         <!-- Actual merged assemblies -->
         <ItemGroup>
             <InputAssemblies Include="$(OutputPath)$(AssemblyName).dll" />
-            <InputAssemblies Include="..\lib\mcs-unity\mcs\bin\Release\mcs.dll" />
             <InputAssemblies Include="packages\ini-parser.2.5.2\lib\net20\INIFileParser.dll" />
         </ItemGroup>
 
